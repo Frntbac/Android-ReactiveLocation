@@ -1,7 +1,9 @@
 package pl.charmas.android.reactivelocation.observables.location;
 
+import android.Manifest;
 import android.content.Context;
 import android.location.Location;
+import android.support.annotation.RequiresPermission;
 import android.util.Log;
 
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -32,18 +34,14 @@ public class LocationUpdatesObservable extends BaseLocationObservable<Location> 
     }
 
     @Override
+    @RequiresPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
     protected void onGoogleApiClientReady(GoogleApiClient apiClient, final Observer<? super Location> observer) {
-        listener = new LocationListener() {
-            @Override
-            public void onLocationChanged(Location location) {
-                observer.onNext(location);
-            }
-        };
+        listener = new MyLocationListener(observer);
         LocationRequest req = locationRequest.get();
         if (req != null) {
             LocationServices.FusedLocationApi.requestLocationUpdates(apiClient, req, listener);
         } else {
-            Log.w("LocUpdatesObservable" ,"Null locationRequest");
+            Log.w("LocUpdatesObservable", "Null locationRequest");
         }
     }
 
@@ -53,6 +51,23 @@ public class LocationUpdatesObservable extends BaseLocationObservable<Location> 
             LocationServices.FusedLocationApi.removeLocationUpdates(locationClient, listener);
         }
         listener = null;
+    }
+
+    private static class MyLocationListener implements LocationListener {
+
+        private WeakReference<? extends Observer<? super Location>> observer;
+
+        private MyLocationListener(Observer<? super Location> observer) {
+            this.observer = new WeakReference<>(observer);
+        }
+
+        @Override
+        public void onLocationChanged(Location location) {
+            Observer<? super Location> observer = this.observer.get();
+            if (observer != null) {
+                observer.onNext(location);
+            }
+        }
     }
 
 }
